@@ -1,0 +1,274 @@
+public with sharing class Landing_Lang_Ext {
+
+    // ===== Referencia al controlador principal =====
+    private Gestion_Colas_Controller ctl;
+
+    // ===== Estado UI/Idioma (usado por VF) =====
+    private String selectedLangPrivate;
+    private Boolean showLandingPrivate;
+
+    // ===== Exponer a VF =====
+    public String  getSelectedLang()         { return selectedLangPrivate; }
+    public void    setSelectedLang(String v) { selectedLangPrivate = v; }
+    public Boolean getShowLanding()          { return showLandingPrivate; }
+
+    // Modal de confirmación (texto y visibilidad)
+    public Boolean getShowConfirm() {
+        if (showLandingPrivate == true) return false;
+        if (ctl == null) return false;
+        try {
+            List<Booking__c> ql = ctl.getQueueList(); // usar getter público del controller
+            return (ql != null && !ql.isEmpty());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    public String getConfirmMessage() {
+        Map<String,String> i = getI18n();
+        return i.containsKey('confirm_msg') ? i.get('confirm_msg')
+               : 'Se le llamará por su nombre en el televisor principal';
+    }
+
+    // URL de la imagen de fondo: ?bg=https://...  ó Static Resource relativo /resource/app_bg
+    public String getBgImageUrl() {
+        String p = ApexPages.currentPage().getParameters().get('bg');
+        if (isValidExternalUrl(p)) return p;
+        // ✅ Evitar métodos retirados: usar ruta relativa del Static Resource
+        return '/resource/app_bg';
+    }
+
+    // Etiqueta legible del idioma actual
+    public String getLangLabel() {
+        Map<String,String> labels = new Map<String,String>{
+            'es' => 'Español',
+            'en' => 'English',
+            'fr' => 'Français',
+            'de' => 'Deutsch'
+        };
+        String l = getLang();
+        return labels.containsKey(l) ? labels.get(l) : 'Español';
+    }
+
+    // Diccionario del idioma actual para VF: {!i18n['clave']}
+    public Map<String,String> getI18n() {
+        String lang = getLang();
+        Map<String,String> mapLang = I18N.get(lang);
+        if (mapLang != null) return mapLang;
+        return I18N.get('es'); // fallback
+    }
+
+    // ===== Repositorio de textos por idioma =====
+    private static final Map<String, Map<String, String>> I18N = buildI18N();
+
+    // ===== Constructores =====
+    public Landing_Lang_Ext(Gestion_Colas_Controller controllerRef) {
+        this.ctl = controllerRef;
+        init();
+    }
+    public Landing_Lang_Ext() { // por si acaso
+        init();
+    }
+
+    // ===== Inicialización =====
+    private void init() {
+        String langParam = ApexPages.currentPage().getParameters().get('lang');
+
+        // Mostrar landing si no llega lang o si llega 'landing'
+        showLandingPrivate  = String.isBlank(langParam) || 'landing'.equalsIgnoreCase(langParam);
+
+        // Idioma por defecto: el del usuario; si llega por parámetro, úsalo
+        selectedLangPrivate = normalize( String.isBlank(langParam) ? UserInfo.getLanguage() : langParam );
+        if (selectedLangPrivate == 'landing') selectedLangPrivate = 'es';
+    }
+
+    // Acción invocada desde VF para elegir idioma (botones en la portada)
+    public void chooseLang() {
+        if (selectedLangPrivate == 'landing') {
+            showLandingPrivate = true;
+            selectedLangPrivate = 'es';
+            return;
+        }
+        selectedLangPrivate = normalize(selectedLangPrivate);
+        showLandingPrivate  = false; // pasamos a la vista principal
+    }
+
+    // ===== Helpers =====
+    private String getLang() {
+        return String.isBlank(selectedLangPrivate) ? 'es' : selectedLangPrivate;
+    }
+
+    private static String normalize(String l) {
+        l = (l == null) ? 'es' : l.toLowerCase();
+        if (l.startsWith('es')) return 'es';
+        if (l.startsWith('en')) return 'en';
+        if (l.startsWith('fr')) return 'fr';
+        if (l.startsWith('de')) return 'de';
+        return 'es';
+    }
+
+    private static Boolean isValidExternalUrl(String u) {
+        if (String.isBlank(u)) return false;
+        String lu = u.trim().toLowerCase();
+        if (lu.startsWith('javascript:') || lu.startsWith('data:')) return false;
+        return (lu.startsWith('http://') || lu.startsWith('https://'));
+    }
+
+    private static Map<String, Map<String, String>> buildI18N() {
+        Map<String, Map<String, String>> m = new Map<String, Map<String, String>>();
+
+        /* ===== Español ===== */
+        m.put('es', new Map<String,String>{
+            // Portada
+            'welcome_big' => '¡Bienvenido a Demo Tours!',
+            'welcome_en'  => 'Welcome to Demo Tours',
+            'welcome_fr'  => 'Bienvenue chez Demo Tours',
+            'welcome_de'  => 'Willkommen bei Demo Tours',
+            'btn_es'      => 'Español',
+            'btn_en'      => 'English',
+            'btn_fr'      => 'Français',
+            'btn_de'      => 'Deutsch',
+            // Cabecera y acciones
+            'current_lang'=> 'Idioma:',
+            'change_lang' => 'cambiar',
+            'header_title'=> 'BIENVENIDOS',
+            // Bloque principal
+            'pb_welcome_title' => 'Totem · Bienvenida',
+            'field_booking' => 'Nº de reserva',
+            'btn_audio'   => 'Audioguías',
+            'btn_sales'   => 'Compras',
+            'btn_support' => 'Asistencia',
+            'btn_groups'  => 'Grupos',
+            'btn_refunds' => 'Devoluciones',
+            // Slots llamados
+            'pb_called_title' => 'Turnos llamados',
+            'slot_rac'    => 'RAC:',
+            'slot_g'      => 'Grupos (G):',
+            'slot_d'      => 'Devoluciones (D):',
+            // Resultados
+            'pb_results_title' => 'Reservas encontradas',
+            'col_reserva' => 'Reserva',
+            'col_nombre'  => 'Nombre',
+            'col_hora'    => 'Hora',
+            'col_estado'  => 'Estado',
+            'col_area'    => 'Área',
+            // Modal confirmación
+            'confirm_msg'     => 'Se le llamará por su nombre en el televisor principal',
+            'ok_returning_in' => 'Volvemos a la portada en',
+            'second'          => 'segundo',
+            'seconds'         => 'segundos'
+        });
+
+        /* ===== English ===== */
+        m.put('en', new Map<String,String>{
+            'welcome_big' => 'Welcome to Demo Tours!',
+            'welcome_en'  => 'Welcome to Demo Tours',
+            'welcome_fr'  => 'Bienvenue chez Demo Tours',
+            'welcome_de'  => 'Willkommen bei Demo Tours',
+            'btn_es'      => 'Español',
+            'btn_en'      => 'English',
+            'btn_fr'      => 'Français',
+            'btn_de'      => 'Deutsch',
+            'current_lang'=> 'Language:',
+            'change_lang' => 'change',
+            'header_title'=> 'WELCOME',
+            'pb_welcome_title' => 'Totem · Welcome',
+            'field_booking' => 'Booking number',
+            'btn_audio'   => 'Audioguides',
+            'btn_sales'   => 'Purchases',
+            'btn_support' => 'Support',
+            'btn_groups'  => 'Groups',
+            'btn_refunds' => 'Refunds',
+            'pb_called_title' => 'Called numbers',
+            'slot_rac'    => 'RAC:',
+            'slot_g'      => 'Groups (G):',
+            'slot_d'      => 'Refunds (D):',
+            'pb_results_title' => 'Bookings found',
+            'col_reserva' => 'Booking',
+            'col_nombre'  => 'First name',
+            'col_hora'    => 'Time',
+            'col_estado'  => 'Status',
+            'col_area'    => 'Area',
+            // Modal confirmación
+            'confirm_msg'     => 'You will be called by your name on the main TV',
+            'ok_returning_in' => 'Returning to language screen in',
+            'second'          => 'second',
+            'seconds'         => 'seconds'
+        });
+
+        /* ===== Français ===== */
+        m.put('fr', new Map<String,String>{
+            'welcome_big' => 'Bienvenue chez Demo Tours !',
+            'welcome_en'  => 'Welcome to Demo Tours',
+            'welcome_fr'  => 'Bienvenue chez Demo Tours',
+            'welcome_de'  => 'Willkommen bei Demo Tours',
+            'btn_es'      => 'Español',
+            'btn_en'      => 'English',
+            'btn_fr'      => 'Français',
+            'btn_de'      => 'Deutsch',
+            'current_lang'=> 'Langue :',
+            'change_lang' => 'changer',
+            'header_title'=> 'BIENVENUE',
+            'pb_welcome_title' => 'Totem · Accueil',
+            'field_booking' => 'Nº de réservation',
+            'btn_audio'   => 'Audioguides',
+            'btn_sales'   => 'Achats',
+            'btn_support' => 'Assistance',
+            'btn_groups'  => 'Groupes',
+            'btn_refunds' => 'Remboursements',
+            'pb_called_title' => 'Numéros appelés',
+            'slot_rac'    => 'RAC :',
+            'slot_g'      => 'Groupes (G) :',
+            'slot_d'      => 'Remboursements (D) :',
+            'pb_results_title' => 'Réservations trouvées',
+            'col_reserva' => 'Réservation',
+            'col_nombre'  => 'Prénom',
+            'col_hora'    => 'Heure',
+            'col_estado'  => 'Statut',
+            'col_area'    => 'Zone',
+            // Modal confirmación
+            'confirm_msg'     => 'Vous serez appelé par votre nom sur l’écran principal',
+            'ok_returning_in' => 'Retour à l’écran de langue dans',
+            'second'          => 'seconde',
+            'seconds'         => 'secondes'
+        });
+
+        /* ===== Deutsch ===== */
+        m.put('de', new Map<String,String>{
+            'welcome_big' => 'Willkommen bei Demo Tours!',
+            'welcome_en'  => 'Welcome to Demo Tours',
+            'welcome_fr'  => 'Bienvenue chez Demo Tours',
+            'welcome_de'  => 'Willkommen bei Demo Tours',
+            'btn_es'      => 'Español',
+            'btn_en'      => 'English',
+            'btn_fr'      => 'Français',
+            'btn_de'      => 'Deutsch',
+            'current_lang'=> 'Sprache:',
+            'change_lang' => 'ändern',
+            'header_title'=> 'WILLKOMMEN',
+            'pb_welcome_title' => 'Totem · Willkommen',
+            'field_booking' => 'Reservierungsnummer',
+            'btn_audio'   => 'Audioguides',
+            'btn_sales'   => 'Einkäufe',
+            'btn_support' => 'Support',
+            'btn_groups'  => 'Gruppen',
+            'btn_refunds' => 'Rückerstattungen',
+            'pb_called_title' => 'Aufgerufene Nummern',
+            'slot_rac'    => 'RAC:',
+            'slot_g'      => 'Gruppen (G):',
+            'slot_d'      => 'Rückerstattungen (D):',
+            'pb_results_title' => 'Gefundene Buchungen',
+            'col_reserva' => 'Buchung',
+            'col_nombre'  => 'Vorname',
+            'col_hora'    => 'Uhrzeit',
+            'col_estado'  => 'Status',
+            'col_area'    => 'Bereich',
+            // Modal confirmación
+            'confirm_msg'     => 'Sie werden mit Ihrem Namen am Hauptfernseher aufgerufen',
+            'ok_returning_in' => 'Zur Sprachwahl zurück in',
+            'second'          => 'Sekunde',
+            'seconds'         => 'Sekunden'
+        });
+
+        return m;
+    }
+}

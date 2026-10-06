@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispoweb - Monitor de Disponibilidad de Widgets Regiondo</title>
+    <link rel="icon" type="image/x-icon" href="/assets/logo.svg">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bs-primary: #006ba1;
+            --bs-primary-rgb: 0, 107, 161;
+        }
+        body { 
+            background: linear-gradient(135deg, #f0f6fb 0%, #fefefe 100%);
+        }
+        .navbar {
+            background: linear-gradient(45deg, #006ba1 0%, #0084d1 100%) !important;
+            box-shadow: 0 2px 4px rgba(0, 107, 161, 0.1);
+        }
+        .card { 
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .card:hover { 
+            transform: translateY(-3px); 
+            box-shadow: 0 4px 16px rgba(0, 107, 161, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #006ba1 0%, #0084d1 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #004d7a 0%, #006ba1 100%);
+        }
+        .badge {
+            font-weight: 500;
+        }
+        .loading { text-align: center; padding: 50px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <img src="/assets/logo.svg" alt="Dispoweb Logo" height="30" class="me-2">
+                Dispoweb
+            </a>
+            <span class="navbar-text">
+                Monitor de Disponibilidad de Widgets Regiondo
+            </span>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4 text-center">
+                    <i class="bi bi-grid-3x3-gap"></i> Widgets de Regiondo
+                </h1>
+                <div class="d-flex justify-content-end mb-3">
+                    <button class="btn btn-light text-primary border border-2 border-primary" data-bs-toggle="modal" data-bs-target="#addTargetModal">
+                        <i class="bi bi-plus-circle"></i> Añadir widget
+                    </button>
+                </div>
+                <div id="loading" class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando lista de widgets...</p>
+                </div>
+                <div id="targets-container" class="row" style="display: none;">
+                    <!-- Targets will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Edit card modal -->
+    <div class="modal fade" id="editCardModal" tabindex="-1" aria-labelledby="editCardModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editCardModalLabel"><i class="bi bi-pencil-square"></i> Editar tarjeta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editCardForm">
+                        <div class="mb-3">
+                            <label for="editCardName" class="form-label">Nombre del widget</label>
+                            <input type="text" class="form-control" id="editCardName" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCardUrl" class="form-label">URL</label>
+                            <input type="text" class="form-control" id="editCardUrl" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCardInterval" class="form-label">Dia y hora de ejecucion </label>
+                            <input type="datetime-local" class="form-control" id="editCardExecute" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCardInterval" class="form-label">Intervalo de verificación (minutos)</label>
+                            <input type="number" class="form-control" id="editCardInterval" min="1" required>
+                        </div>
+                    </form>
+                    <div id="editCardError" class="alert alert-danger d-none" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEditCard()">Guardar cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add target modal -->
+    <div class="modal fade" id="addTargetModal" tabindex="-1" aria-labelledby="addTargetModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTargetModalLabel"><i class="bi bi-plus-circle"></i> Añadir nuevo widget</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addTargetForm">
+                        <div class="mb-3">
+                            <label for="targetId" class="form-label">Nombre del widget</label>
+                            <input type="text" class="form-control" id="targetId" placeholder="Ej. regiondo-widget-01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="targetUrl" class="form-label">URL</label>
+                            <input type="url" class="form-control" id="targetUrl" placeholder="https://example.com/widget" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="targetExecute" class="form-label">Dia y hora de ejecucion </label>
+                            <input type="datetime-local" class="form-control" id="targetExecute" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="targetInterval" class="form-label">Intervalo de verificación (minutos)</label>
+                            <input type="number" class="form-control" id="targetInterval" value="1" min="1" required>
+                        </div>
+                    </form>
+                    <div id="addTargetError" class="alert alert-danger d-none" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="submitNewTarget()">Guardar widget</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editingCardId = null;
+
+        function toDatetimeLocal(isoString) {
+            const date = new Date(isoString);
+
+            const offset = date.getTimezoneOffset();
+            const local = new Date(date.getTime() - offset * 60000);
+
+            return local.toISOString().slice(0, 16);
+        }
+
+        function openEditModal(id, name, url, interval, execute_at) {
+            editingCardId = id;
+            document.getElementById('editCardName').value = name;
+            document.getElementById('editCardUrl').value = url;
+            document.getElementById('editCardInterval').value = interval;
+            document.getElementById('editCardExecute').value = toDatetimeLocal(execute_at) || '';
+            document.getElementById('editCardError').classList.add('d-none');
+            const modal = new bootstrap.Modal(document.getElementById('editCardModal'));
+            modal.show();
+        }
+
+        async function submitEditCard() {
+            const urlInput = document.getElementById('editCardUrl');
+            const intervalInput = document.getElementById('editCardInterval');
+            const errorBox = document.getElementById('editCardError');
+            const editExecuteInput = document.getElementById('editCardExecute');
+
+            errorBox.classList.add('d-none');
+            errorBox.textContent = '';
+
+            const url = urlInput.value.trim();
+            const minutes = parseInt(intervalInput.value, 10);
+            const interval_ms = minutes;
+            const raw = document.getElementById('editCardExecute').value;
+
+            const execute_at = raw
+            ? raw.replace('T', ' ') + ':00'
+            : null;
+
+            if (!url || !minutes) {
+                errorBox.textContent = 'Rellena todos los campos correctamente.';
+                errorBox.classList.remove('d-none');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/websites/${editingCardId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, interval_ms, execute_at })
+                });
+
+                if (!response.ok) {
+                    const result = await response.json();
+                    throw new Error(result.error || 'No se pudo actualizar');
+                }
+
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editCardModal'));
+                modal.hide();
+
+                const container = document.getElementById('targets-container');
+                container.innerHTML = '';
+                await loadTargets();
+            } catch (error) {
+                errorBox.textContent = error.message;
+                errorBox.classList.remove('d-none');
+            }
+        }
+
+        async function toggleActive(id, newActive, badge) {
+            try {
+                const response = await fetch(`/api/websites/${id}/active`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active: newActive })
+                });
+                if (!response.ok) throw new Error('Error al actualizar');
+                const result = await response.json();
+                // Update UI
+                badge.className = result.active ? 'badge bg-success me-2' : 'badge bg-danger me-2';
+                badge.textContent = result.active ? 'Activo' : 'Inactivo';
+            } catch (error) {
+                alert('Error al cambiar el estado: ' + error.message);
+                // Revert the switch if error
+                const switchEl = document.getElementById(`toggle-${id}`);
+                if (switchEl) switchEl.checked = !newActive;
+            }
+        }
+
+        async function submitNewTarget() {
+            const idInput = document.getElementById('targetId');
+            const urlInput = document.getElementById('targetUrl');
+            const intervalInput = document.getElementById('targetInterval');
+            const executeInput = document.getElementById('targetExecute');
+            const errorBox = document.getElementById('addTargetError');
+
+            const raw = document.getElementById('targetExecute').value;
+
+            const execute_at = raw
+            ? raw.replace('T', ' ') + ':00'
+            : null;
+
+            errorBox.classList.add('d-none');
+            errorBox.textContent = '';
+
+            const id = idInput.value.trim();
+            const url = urlInput.value.trim();
+            const minutes = parseInt(intervalInput.value, 10);
+            const interval_ms = minutes; // Convertir minutos a milisegundos
+
+            if (!id || !url || !minutes) {
+                errorBox.textContent = 'Rellena todos los campos correctamente.';
+                errorBox.classList.remove('d-none');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/websites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, url, interval_ms, execute_at })
+                });
+
+                if (!response.ok) {
+                    const result = await response.json();
+                    throw new Error(result.error || 'No se pudo crear el widget');
+                }
+
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addTargetModal'));
+                modal.hide();
+
+                idInput.value = '';
+                urlInput.value = '';
+                intervalInput.value = '1';
+
+                const container = document.getElementById('targets-container');
+                container.innerHTML = '';
+                await loadTargets();
+            } catch (error) {
+                errorBox.textContent = error.message;
+                errorBox.classList.remove('d-none');
+            }
+        }
+
+        async function loadTargets() {
+            const loading = document.getElementById('loading');
+            const container = document.getElementById('targets-container');
+
+            try {
+                const response = await fetch('/api/websites');
+                if (!response.ok) {
+                    throw new Error('Error al cargar los datos');
+                }
+                const targets = await response.json();
+
+                loading.style.display = 'none';
+                container.style.display = 'block';
+
+                targets.forEach(target => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 col-lg-4 mb-4';
+
+                    const card = document.createElement('div');
+                    card.className = 'card h-100';
+
+                    const cardBody = document.createElement('div');
+                    cardBody.className = 'card-body d-flex flex-column';
+
+                    const title = document.createElement('h5');
+                    title.className = 'card-title';
+                    title.innerHTML = `<i class="bi bi-widget"></i> ${target.id}`;
+
+                    const url = document.createElement('p');
+                    url.className = 'card-text text-muted small';
+                    url.textContent = target.url;
+
+                    // Interval
+                    const interval = document.createElement('p');
+                    interval.className = 'card-text small text-muted';
+                    const intervalMs = parseInt(target.interval_ms, 10); // Convertir a número
+                    const intervalText = String(intervalMs);
+
+                    interval.innerHTML = `<i class="bi bi-clock"></i> Cada ${intervalText} minutos`;
+
+                    // Status badge
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = target.active ? 'badge bg-success me-2' : 'badge bg-danger me-2';
+                    statusBadge.textContent = target.active ? 'Activo' : 'Inactivo';
+
+                    // Toggle switch
+                    const toggleContainer = document.createElement('div');
+                    toggleContainer.className = 'form-check form-switch d-flex align-items-center';
+                    const toggleInput = document.createElement('input');
+                    toggleInput.className = 'form-check-input';
+                    toggleInput.type = 'checkbox';
+                    toggleInput.id = `toggle-${target.internal_id}`;
+                    toggleInput.checked = target.active;
+                    toggleInput.onchange = () => toggleActive(target.internal_id, toggleInput.checked, statusBadge);
+                    const toggleLabel = document.createElement('label');
+                    toggleLabel.className = 'form-check-label ms-2';
+                    toggleLabel.htmlFor = `toggle-${target.internal_id}`;
+                    toggleLabel.textContent = 'Activo';
+                    toggleContainer.appendChild(toggleInput);
+                    toggleContainer.appendChild(toggleLabel);
+
+                    // Next execution
+                    const nextExec = document.createElement('p');
+                    nextExec.className = 'card-text small text-muted';
+                    if (target.execute_at) {
+                        const date = new Date(target.execute_at);
+                        nextExec.textContent = `Próxima ejecución: ${date.toLocaleString('es-ES')}`;
+                    } else {
+                        nextExec.textContent = 'Sin fecha de ejecución programada';
+                    }
+
+                    // Last run
+                    const lastRun = document.createElement('p');
+                    lastRun.className = 'card-text small text-muted';
+                    if (target.last_run) {
+                        const date = new Date(parseInt(target.last_run));
+                        lastRun.textContent = `Última verificación: ${date.toLocaleString('es-ES')}`;
+                    } else {
+                        lastRun.textContent = 'Sin verificaciones previas';
+                    }
+
+                    const link = document.createElement('a');
+                    link.href = target.url.startsWith('http') ? target.url : `http://${target.url}`;
+                    link.target = '_blank';
+                    link.className = 'btn btn-primary mt-auto';
+                    link.innerHTML = '<i class="bi bi-eye"></i> Ver Widget';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.className = 'btn btn-outline-primary mt-2';
+                    editBtn.innerHTML = '<i class="bi bi-pencil"></i> Editar tarjeta';
+                    editBtn.onclick = () => openEditModal(target.internal_id, target.id, target.url, target.interval_ms, target.execute_at);
+
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'd-flex gap-2';
+                    btnContainer.appendChild(link);
+                    btnContainer.appendChild(editBtn);
+
+                    cardBody.appendChild(title);
+                    cardBody.appendChild(url);
+                    cardBody.appendChild(interval);
+                    const statusRow = document.createElement('div');
+                    statusRow.className = 'd-flex align-items-center justify-content-between mb-2';
+                    statusRow.appendChild(statusBadge);
+                    statusRow.appendChild(toggleContainer);
+                    cardBody.appendChild(statusRow);
+                    cardBody.appendChild(nextExec);
+                    cardBody.appendChild(lastRun);
+                    cardBody.appendChild(btnContainer);
+                    card.appendChild(cardBody);
+                    col.appendChild(card);
+                    container.appendChild(col);
+                });
+            } catch (error) {
+                loading.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Error al cargar los targets: ${error.message}
+                    </div>
+                `;
+                console.error('Error loading targets:', error);
+            }
+        }
+
+        window.onload = loadTargets;
+    </script>
+</body>
+</html>

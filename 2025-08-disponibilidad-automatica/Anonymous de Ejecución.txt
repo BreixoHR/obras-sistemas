@@ -1,0 +1,77 @@
+// === INPUT ===
+String variationId = '495665';
+Date dFrom = Date.today();
+Date dTo   = Date.today().addDays(10);
+
+try {
+    HttpResponse r = RegiondoDispo.getAvailabilities(variationId, dFrom, dTo);
+    System.debug('Status=' + r.getStatusCode() + ' | ' + r.getStatus());
+
+    // Parseo robusto
+    Map<String, Object> root = (Map<String, Object>) JSON.deserializeUntyped(r.getBody());
+    Object dataNode = root == null ? null : root.get('data');
+
+    Integer count = 0;
+    // 1) Caso común: data es lista
+    if (dataNode instanceof List<Object>) {
+        List<Object> lst = (List<Object>) dataNode;
+        count = lst.size();
+        System.debug('data (List) size=' + count);
+        if (count > 0) {
+            System.debug(JSON.serializePretty(root));
+        } else {
+            System.debug('data vacío para hoy.');
+        }
+    }
+    // 2) data es objeto: intenta localizar listas típicas dentro
+    else if (dataNode instanceof Map<String, Object>) {
+        Map<String, Object> dm = (Map<String, Object>) dataNode;
+
+        // Intenta en claves habituales
+        List<String> keys = new List<String>{'availabilities','items','slots','dates','times','timeSlots'};
+        Boolean found = false;
+        for (String k : keys) {
+            if (dm.containsKey(k) && dm.get(k) instanceof List<Object>) {
+                List<Object> lst = (List<Object>) dm.get(k);
+                count = lst.size();
+                System.debug('data.' + k + ' size=' + count);
+                if (count > 0) {
+                    System.debug(JSON.serializePretty(root));
+                } else {
+                    System.debug('data.' + k + ' vacío para hoy.');
+                }
+                found = true;
+                break;
+            }
+        }
+        // Si no encontró listas conocidas, cuenta todas las listas hijas
+        if (!found) {
+            Integer sum = 0;
+            for (Object v : dm.values()) {
+                if (v instanceof List<Object>) sum += ((List<Object>) v).size();
+            }
+            count = sum;
+            System.debug('data(Map) sin claves típicas. Suma de listas hijas=' + count);
+            if (count > 0) {
+                System.debug(JSON.serializePretty(root));
+            } else {
+                System.debug('Sin disponibilidad detectable en estructura de hoy.');
+            }
+        }
+    }
+    // 3) data nulo o de tipo inesperado
+    else {
+        System.debug('Nodo data nulo o de tipo inesperado. Body ↓');
+        System.debug(JSON.serializePretty(root));
+    }
+
+    // Mensaje final resumido
+    if (count == 0) {
+        System.debug('>>> NO hay slots para HOY en esta variationId (' + variationId + ').');
+        System.debug('>>> Motivos típicos: lead time (mínima antelación), no opera hoy, o slots en horas no devueltas por /availabilities.');
+        System.debug('>>> Si quieres, prueba cambiando dTo = Date.today().addDays(1) o usa /availoptions con una hora concreta.');
+    }
+
+} catch (Exception e) {
+    System.debug('ERROR: ' + e.getMessage());
+}

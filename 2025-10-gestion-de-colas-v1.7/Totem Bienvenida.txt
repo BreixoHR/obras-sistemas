@@ -1,0 +1,233 @@
+<apex:page controller="Gestion_Colas_Controller"
+           extensions="Landing_Lang_Ext"
+           docType="html-5.0"
+           showHeader="false"
+           sidebar="false"
+           cache="false">
+
+    <style>
+        /* ====== Layout y tipografía ====== */
+        html, body { height:100%; margin:0; }
+        body {
+            font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
+            color:#0b2239;
+        }
+
+        /* ====== Fondo de portada con imagen ====== */
+        .landing-bg {
+            min-height:100vh;
+            width:100%;
+            background:
+                linear-gradient(0deg, rgba(0,0,0,.35), rgba(0,0,0,.35)),
+                url('{!bgImageUrl}') center/cover no-repeat fixed;
+            display:flex; align-items:center; justify-content:center;
+            text-align:center; padding:24px;
+        }
+
+        /* ====== Encabezado ====== */
+        .app-header {
+            background-color:#005A9C; color:#fff; font-size:1.6em; font-weight:bold;
+            height:80px; display:flex; align-items:center; justify-content:center;
+            position:relative; box-shadow:0 2px 6px rgba(0,0,0,0.15);
+        }
+        .app-logo2 { position:absolute; left:20px; height:80px; display:flex; align-items:center; }
+        .app-title { flex-grow:1; text-align:center; }
+
+        /* ====== Botones genéricos ====== */
+        apex\:commandButton, button, input[type="submit"], input[type="button"], input[type="reset"] {
+            background-color:#FF6A00 !important; color:#000 !important;
+            border:none !important; padding:14px 24px !important; font-weight:700 !important;
+            border-radius:12px !important; box-shadow:0 6px 16px rgba(255,106,0,0.45) !important;
+            cursor:pointer !important; transition:transform .05s ease, box-shadow .25s ease !important;
+            font-size:1.2em !important; margin:8px 6px !important; display:inline-block !important;
+            text-transform:uppercase !important; letter-spacing:.05em !important; line-height:normal !important;
+        }
+        apex\:commandButton:hover, button:hover, input[type="submit"]:hover, input[type="button"]:hover, input[type="reset"]:hover {
+            box-shadow:0 12px 28px rgba(255,120,0,.6) !important;
+            transform: translateY(-1px);
+        }
+
+        /* ====== Input / select ====== */
+        input[type="text"], input[type="date"], apex\:inputText input, select, apex\:selectList select {
+            width:100%; padding:12px 14px; border:2px solid #ffb980; border-radius:10px;
+            font-size:1.05em; transition:border-color .3s ease, box-shadow .3s ease;
+            box-sizing:border-box; outline-offset:3px; background-color:#fff6ec;
+            color:#663300; font-weight:600; appearance:none;
+        }
+
+        /* ====== Tabla ====== */
+        .app-table { width:100%; border-collapse:separate; border-spacing:0 8px; margin-top:10px; color:#663300; }
+        .app-table thead th {
+            background:linear-gradient(135deg,#FF6A00,#e65a00); color:#fff; font-weight:800;
+            padding:16px 14px; border-radius:12px 12px 0 0; text-align:center;
+            letter-spacing:.08em; text-transform:uppercase; box-shadow:0 4px 8px rgba(255,106,0,0.4);
+            border-bottom:3px solid #cc5800; font-size:1.05em;
+        }
+        .app-table tbody tr { background-color:#fff6ec; box-shadow:0 1px 5px rgba(255,106,0,0.15); border-radius:8px; }
+        .app-table tbody tr td { padding:12px 14px; text-align:center; font-size:1em; font-weight:600; }
+
+        /* ====== Botones de idioma (visibles en la portada) ====== */
+        .lang-wrap { display:flex; flex-direction:column; gap:16px; align-items:center; }
+        .lang-title { font-size:3rem; font-weight:900; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.35); margin-bottom:24px; }
+
+        /* ====== Modal de confirmación ====== */
+        .modal-mask {
+            position:fixed; inset:0; background:rgba(0,0,0,.6);
+            display:flex; align-items:center; justify-content:center; z-index:9999;
+        }
+        .modal-card {
+            background:#ffffff; border-radius:18px; padding:36px 32px; max-width:900px; width:90%;
+            box-shadow:0 20px 60px rgba(0,0,0,.35); text-align:center;
+        }
+        .modal-card h2 { font-size:2.2rem; margin:0 0 10px 0; color:#0b2239; }
+        .modal-card p  { font-size:1.3rem; margin:0; color:#18314f; }
+        .modal-timer   { margin-top:18px; font-size:1rem; color:#365b87; opacity:.9; }
+    </style>
+
+    <!-- ===== Portada selección de idioma (con imagen de fondo) ===== -->
+    <apex:outputPanel rendered="{!showLanding}">
+        <div class="landing-bg">
+            <div>
+                <div class="lang-title">{!i18n['welcome_big']}</div>
+                <apex:form >
+                    <div class="lang-wrap">
+                        <apex:commandButton value="{!i18n['btn_es']}" action="{!chooseLang}">
+                            <apex:param name="lang" value="es" assignTo="{!selectedLang}"/>
+                        </apex:commandButton>
+                        <apex:commandButton value="{!i18n['btn_en']}" action="{!chooseLang}">
+                            <apex:param name="lang" value="en" assignTo="{!selectedLang}"/>
+                        </apex:commandButton>
+                        <apex:commandButton value="{!i18n['btn_fr']}" action="{!chooseLang}">
+                            <apex:param name="lang" value="fr" assignTo="{!selectedLang}"/>
+                        </apex:commandButton>
+                        <apex:commandButton value="{!i18n['btn_de']}" action="{!chooseLang}">
+                            <apex:param name="lang" value="de" assignTo="{!selectedLang}"/>
+                        </apex:commandButton>
+                    </div>
+                </apex:form>
+            </div>
+        </div>
+    </apex:outputPanel>
+
+    <!-- ===== Página principal ===== -->
+    <apex:outputPanel id="all" rendered="{!NOT(showLanding)}">
+
+        <div class="app-header">
+            <div class="app-logo2">
+                <img src="https://www.example.com/logo.png"/>
+            </div>
+            <div class="app-title">{!i18n['header_title']}</div>
+        </div>
+
+        <apex:form id="frm">
+            <apex:pageMessages id="msgs"/>
+
+            <apex:outputPanel id="res">
+
+                <apex:pageBlock title="{!i18n['pb_welcome_title']}" id="pbMain">
+                    <apex:pageBlockSection columns="1">
+
+                        <!-- Nº de reserva -->
+                        <apex:inputText value="{!enteredBookingName}" label="{!i18n['field_booking']}"/>
+
+                        <!-- Botones de áreas -->
+                        <apex:outputPanel layout="block" style="margin-top:12px;">
+
+                            <apex:commandButton value="{!i18n['btn_audio']}"
+                                                action="{!searchByBookingName}"
+                                                rerender="res,msgs,confirmWrap">
+                                <apex:param name="areaCode" value="RAC" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+
+                            <apex:commandButton value="{!i18n['btn_sales']}"
+                                                action="{!searchByBookingName}"
+                                                rerender="res,msgs,confirmWrap">
+                                <apex:param name="areaCode" value="RAC" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+
+                            <apex:commandButton value="{!i18n['btn_support']}"
+                                                action="{!searchByBookingName}"
+                                                rerender="res,msgs,confirmWrap">
+                                <apex:param name="areaCode" value="RAC" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+
+                            <apex:commandButton value="{!i18n['btn_groups']}"
+                                                action="{!searchByBookingName}"
+                                                rerender="res,msgs,confirmWrap">
+                                <apex:param name="areaCode" value="G" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+
+                            <apex:commandButton value="{!i18n['btn_refunds']}"
+                                                action="{!searchByBookingName}"
+                                                rerender="res,msgs,confirmWrap">
+                                <apex:param name="areaCode" value="D" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+
+                        </apex:outputPanel>
+                    </apex:pageBlockSection>
+                </apex:pageBlock>
+
+                <!-- Slots llamados -->
+                <apex:pageBlock title="{!i18n['pb_called_title']}" id="pbSlots">
+                    <apex:pageBlockSection columns="1">
+                        <apex:outputPanel layout="block">
+                            <apex:outputText value="{!i18n['slot_rac']} {!P1}"/>
+                        </apex:outputPanel>
+                        <apex:outputPanel layout="block">
+                            <apex:outputText value="{!i18n['slot_g']} {!P2}"/>
+                        </apex:outputPanel>
+                        <apex:outputPanel layout="block">
+                            <apex:outputText value="{!i18n['slot_d']} {!P3}"/>
+                        </apex:outputPanel>
+                    </apex:pageBlockSection>
+                </apex:pageBlock>
+
+                <!-- Resultados -->
+                <apex:pageBlock title="{!i18n['pb_results_title']}"
+                                id="pbResults"
+                                rendered="{!AND(NOT(showLanding), NOT(ISBLANK(queueList)))}">
+                    <apex:pageBlockTable value="{!queueList}" var="b" id="tblBookings" styleClass="app-table">
+                        <apex:column headerValue="{!i18n['col_reserva']}" value="{!b.Name}"/>
+                        <apex:column headerValue="{!i18n['col_nombre']}" value="{!b.ContactFirstName__c}"/>
+                        <apex:column headerValue="{!i18n['col_hora']}" value="{!b.StartDateTime__c}"/>
+                        <apex:column headerValue="{!i18n['col_estado']}" value="{!b.QueueStatus__c}"/>
+                        <apex:column headerValue="{!i18n['col_area']}" value="{!b.QueueArea__c}"/>
+                    </apex:pageBlockTable>
+                </apex:pageBlock>
+
+            </apex:outputPanel>
+        </apex:form>
+    </apex:outputPanel>
+
+    <!-- ===== Modal de confirmación (solo si hay reserva encontrada) ===== -->
+    <apex:outputPanel id="confirmWrap" rendered="{!showConfirm}">
+        <div class="modal-mask" id="confirmModal">
+            <div class="modal-card">
+                <h2>{!i18n['pb_results_title']}</h2>
+                <p>{!confirmMessage}</p>
+                <div class="modal-timer" id="timerMsg"></div>
+            </div>
+        </div>
+
+        <script>
+            (function(){
+                var seconds = 5;
+                var el = document.getElementById('timerMsg');
+                function tick(){
+                    if(!el) return;
+                    el.textContent = seconds === 1
+                        ? ('{!JSENCODE(i18n["ok_returning_in"])} 1 {!JSENCODE(i18n["second"])}...')
+                        : ('{!JSENCODE(i18n["ok_returning_in"])} ' + seconds + ' {!JSENCODE(i18n["seconds"])}...');
+                    seconds--;
+                    if(seconds < 0){
+                        // Volver a la portada de selección de idioma
+                        window.location.href = window.location.pathname;
+                    } else {
+                        setTimeout(tick, 1000);
+                    }
+                }
+                tick();
+            })();
+        </script>
+    </apex:outputPanel>
+</apex:page>

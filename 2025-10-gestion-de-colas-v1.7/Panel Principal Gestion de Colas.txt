@@ -1,0 +1,96 @@
+<apex:page controller="Gestion_Colas_Controller"
+           extensions="Turno_Theme_Ext"
+           docType="html-5.0"
+           showHeader="false"
+           sidebar="false"
+           action="{!loadConfig}">
+
+    <style>
+        .app-header{background-color:#005A9C;color:#fff;font-size:1.6em;font-weight:bold;height:80px;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 2px 6px rgba(0,0,0,0.15)}
+        .app-logo2{position:absolute;left:20px;height:80px;display:flex;align-items:center}
+        .app-title{flex-grow:1;text-align:center}
+        apex\:commandButton,button,input[type="submit"],input[type="button"],input[type="reset"]{background-color:#FF6A00!important;color:#000!important;border:none!important;padding:10px 22px!important;font-weight:600!important;border-radius:8px!important;box-shadow:0 4px 12px rgba(255,106,0,0.4)!important;cursor:pointer!important;transition:background-color .25s ease,box-shadow .25s ease!important;font-size:1.05em!important;margin:6px 4px!important;display:inline-block!important;text-transform:uppercase!important;letter-spacing:.05em!important}
+        apex\:commandButton:hover{background-color:#e65a00!important;box-shadow:0 10px 24px rgb(255,120,0)!important}
+        .app-table{width:100%;border-collapse:separate;border-spacing:0 8px;margin-top:10px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;color:#663300}
+        .app-table thead th{background:linear-gradient(135deg,#FF6A00,#e65a00);color:#fff;font-weight:700;padding:16px 14px;border-radius:12px 12px 0 0;text-align:center;letter-spacing:.1em;text-transform:uppercase;box-shadow:0 4px 8px rgba(255,106,0,0.4);border-bottom:3px solid #cc5800;font-size:1.1em}
+        .app-table tbody tr{background-color:#fff6ec;box-shadow:0 1px 5px rgba(255,106,0,0.15);border-radius:8px}
+        .app-table tbody tr td{padding:12px 14px;text-align:center;font-size:1em;font-weight:600}
+    </style>
+
+    <div class="app-header">
+        <div class="app-logo2"><img src="https://www.example.com/logo.png"/></div>
+        <div class="app-title">Gestión de Colas General</div>
+    </div>
+
+    <apex:form id="frm">
+        <apex:pageMessages id="msgs"/>
+
+        <!-- ===== Panel de control TV / Blackout ===== -->
+        <apex:pageBlock title="Pantallas TV · Blackout por área" id="tvBlk">
+            <apex:pageBlockSection columns="3">
+                <apex:inputCheckbox value="{!blackoutRacValue}" label="Blackout RAC"/>
+                <apex:inputCheckbox value="{!blackoutGValue}"   label="Blackout G"/>
+                <apex:inputCheckbox value="{!blackoutDValue}"   label="Blackout D"/>
+            </apex:pageBlockSection>
+
+            <apex:pageBlockSection title="Static Resource de fondo (deja vacío para usar el default)" columns="4">
+                <apex:inputText value="{!bgResourceGlobalValue}" label="Global (p.ej. app_bg1b)"/>
+                <apex:inputText value="{!bgResourceRacValue}"    label="RAC (override)"/>
+                <apex:inputText value="{!bgResourceGValue}"      label="G (override)"/>
+                <apex:inputText value="{!bgResourceDValue}"      label="D (override)"/>
+            </apex:pageBlockSection>
+
+            <apex:pageBlockSection columns="1">
+                <apex:commandButton value="Guardar configuración" action="{!saveConfig}" rerender="msgs,tvBlk"/>
+                <apex:outputPanel style="color:#555; padding:0 14px 14px 14px;">
+                    <em>Si el blackout está activo para un área, su pantalla (RAC/G/D) mostrará solo la imagen indicada. Orden de resolución del fondo: <b>Override de área</b> → <b>Global</b> → <b>app_bg1b</b>.</em>
+                </apex:outputPanel>
+            </apex:pageBlockSection>
+        </apex:pageBlock>
+
+
+        <!-- ===== Tu bloque existente: Slots y cola ===== -->
+        <apex:pageBlock title="Gestión de Slots y Cola">
+            <apex:pageBlockSection title="Slots" columns="1">
+                <apex:outputPanel id="slotsPanel">
+                    <apex:pageBlockSection columns="3">
+
+                        <apex:outputPanel >
+                            <apex:outputText value="RAC: {!P1}"/>
+                            <apex:commandButton value="Llamar siguiente RAC" action="{!advanceQueue}" rerender="slotsPanel,resPanel,msgs">
+                                <apex:param name="areaCode" value="RAC" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+                        </apex:outputPanel>
+
+                        <apex:outputPanel >
+                            <apex:outputText value="G: {!P2}"/>
+                            <apex:commandButton value="Llamar siguiente G" action="{!advanceQueue}" rerender="slotsPanel,resPanel,msgs">
+                                <apex:param name="areaCode" value="G" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+                        </apex:outputPanel>
+
+                        <apex:outputPanel >
+                            <apex:outputText value="D: {!P3}"/>
+                            <apex:commandButton value="Llamar siguiente D" action="{!advanceQueue}" rerender="slotsPanel,resPanel,msgs">
+                                <apex:param name="areaCode" value="D" assignTo="{!areaCode}"/>
+                            </apex:commandButton>
+                        </apex:outputPanel>
+
+                    </apex:pageBlockSection>
+                </apex:outputPanel>
+            </apex:pageBlockSection>
+
+            <apex:pageBlockSection title="Resultados" columns="1">
+                <apex:outputPanel id="resPanel">
+                    <apex:pageBlockTable value="{!queueList}" var="b" styleClass="app-table">
+                        <apex:column value="{!b.Name}" headerValue="Reserva"/>
+                        <apex:column value="{!b.ContactFirstName__c}" headerValue="Cliente"/>
+                        <apex:column value="{!b.QueueArea__c}" headerValue="Área"/>
+                        <apex:column value="{!b.StartDateTime__c}" headerValue="Inicio"/>
+                        <apex:column value="{!b.QueueStatus__c}" headerValue="Estado"/>
+                    </apex:pageBlockTable>
+                </apex:outputPanel>
+            </apex:pageBlockSection>
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>

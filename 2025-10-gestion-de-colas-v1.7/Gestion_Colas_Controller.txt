@@ -1,0 +1,456 @@
+public with sharing class Gestion_Colas_Controller {
+
+    // ===== Estado de pantalla (para Visualforce Totem / Gestión) =====
+    public String enteredBookingName { get; set; }   // Nº de reserva introducido en VF
+    public String P1 { get; private set; }           // Slot RAC (texto visible en página de gestión)
+    public String P2 { get; private set; }           // Slot G
+    public String P3 { get; private set; }           // Slot D
+    public String P4 { get; private set; }           // Slot RAC2
+    public String P5 { get; private set; }           // Slot RAC3
+    public String P6 { get; private set; }           // Slot RAC4    
+    public String areaCode { get; set; }             // Código de área (RAC/G/D) desde VF
+    //Variables para el Tótem 
+    public Boolean showConfirm { get; set; }
+    public String confirmMessage { get; set; }
+    public Integer clickCount { get; set; }
+
+    // Establecer área por defecto al cargar páginas de panel
+    public PageReference setAreaRAC4() { this.areaCode = 'RAC4'; return null; }
+    public PageReference setAreaRAC3() { this.areaCode = 'RAC3'; return null; }
+    public PageReference setAreaRAC2() { this.areaCode = 'RAC2'; return null; }
+    public PageReference setAreaRAC() { this.areaCode = 'RAC'; return null; }
+    public PageReference setAreaG()   { this.areaCode = 'G';   return null; }
+    public PageReference setAreaD()   { this.areaCode = 'D';   return null; }
+
+    // Acción “vacía” para que el Poller dispare reevaluación y reRender
+    public PageReference noop() { return null; }
+
+    private List<Booking__c> queueList;              // Lista visible en la tabla (opcional)
+
+    // ===== Constructor =====
+    public Gestion_Colas_Controller() {
+        queueList = new List<Booking__c>();
+        P1 = ''; P2 = ''; P3 = ''; P4 = ''; P5 = ''; P6 = '';
+        clickCount = 0; 
+    }
+
+    // ===== Helpers =====
+    private String resolveAreaFromContext() {
+        String area = this.areaCode;
+        if (String.isBlank(area)) area = ApexPages.currentPage().getParameters().get('areaCode');
+        if (String.isBlank(area)) area = ApexPages.currentPage().getParameters().get('area');
+        return (area == null ? null : area.trim().toUpperCase());
+    }
+    private static String norm(String s){ return s==null ? null : s.trim().toUpperCase(); }
+
+    // Estados “de lista” que deben promoverse a Waiting al buscar por localizador
+    private static Set<String> LIST_STATUSES = new Set<String>{
+        'NEW','CREATED','LIST','LISTED','LISTA','EN LISTA','QUEUED','QUEUE','PENDIENTE','PENDING'
+    };
+
+    // ===== 1) Buscar por localizador y, si procede, promover a Waiting + fijar área =====
+    public PageReference searchByBookingName() {
+        if (String.isBlank(enteredBookingName)) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Introduce tu número de reserva.'));
+            return null;
+        }
+
+        List<Booking__c> found = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c
+            FROM Booking__c
+            WHERE Name = :enteredBookingName
+            ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+        ];
+
+        if (found.isEmpty()) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.INFO, 'No se han encontrado reservas para ese localizador.'));
+            queueList = new List<Booking__c>();
+            return null;
+        }
+
+        String areaCtx = resolveAreaFromContext();
+        List<Booking__c> toUpdate = new List<Booking__c>();
+        for (Booking__c b : found) {
+            String st = (b.QueueStatus__c == null ? null : b.QueueStatus__c.trim());
+            Boolean promote = (st == null) || LIST_STATUSES.contains(st.toUpperCase());
+            if (promote) b.QueueStatus__c = 'Waiting';
+            if (!String.isBlank(areaCtx)) b.QueueArea__c = areaCtx; // fuerza el área elegida
+            if (promote || !String.isBlank(areaCtx)) toUpdate.add(b);
+        }
+        if (!toUpdate.isEmpty()) update toUpdate;
+
+        queueList = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c
+            FROM Booking__c
+            WHERE Name = :enteredBookingName
+            ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+        ];
+        return null;
+    }
+    
+   //FORZADO DE AREA RAC2 
+    public PageReference searchByBookingNameRAC2() {
+        if (String.isBlank(enteredBookingName)) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Introduce tu número de reserva.'));
+            return null;
+        }
+
+        List<Booking__c> found = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c
+            FROM Booking__c
+            WHERE Name = :enteredBookingName
+            ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+        ];
+
+        if (found.isEmpty()) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.INFO, 'No se han encontrado reservas para ese localizador.'));
+            queueList = new List<Booking__c>();
+            return null;
+        }
+
+        String areaCtx = resolveAreaFromContext();
+        List<Booking__c> toUpdate = new List<Booking__c>();
+        for (Booking__c b : found) {
+            String st = (b.QueueStatus__c == null ? null : b.QueueStatus__c.trim());
+            Boolean promote = (st == null) || LIST_STATUSES.contains(st.toUpperCase());
+            if (promote) b.QueueStatus__c = 'Waiting';
+            if (!String.isBlank(areaCtx)) b.QueueArea__c = 'RAC2'; // fuerza el área elegida
+            if (promote || !String.isBlank(areaCtx)) toUpdate.add(b);
+        }
+        if (!toUpdate.isEmpty()) update toUpdate;
+
+        queueList = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c
+            FROM Booking__c
+            WHERE Name = :enteredBookingName
+            ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+        ];
+        return null;
+    }
+   
+   //FIN FORZADO DE AREA RAC2 
+
+    // ===== 1.b) Acción combinada para Totem: por localizador (targeted) o avance normal =====
+    public PageReference promoteAndAdvance() {
+        String area = resolveAreaFromContext();
+        if (String.isBlank(area)) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.ERROR, 'Falta el área (RAC/G/D).'));
+            return null;
+        }
+
+        // Si viene localizador, hacemos llamada “dirigida” a esa reserva
+        if (!String.isBlank(enteredBookingName)) {
+            return callByLocator(area, enteredBookingName);
+        }
+
+        // Si no viene localizador, avanzamos la cola estándar
+        return this.advanceQueue();
+    }
+
+private PageReference callByLocator(String area, String locator) {
+    // 1) Localiza exactamente la reserva por Name (la más próxima por fecha)
+    List<Booking__c> found = [
+        SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, Product__c
+        FROM Booking__c
+        WHERE Name = :locator
+        ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+        LIMIT 1
+    ];
+    if (found.isEmpty()) {
+        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.INFO, 'No se han encontrado reservas para ese localizador.'));
+        return null;
+    }
+    Booking__c target = found[0];
+
+    // 2) Normaliza su estado
+    String st = target.QueueStatus__c;
+    if (st == null || LIST_STATUSES.contains(st.trim().toUpperCase())) {
+        target.QueueStatus__c = 'Waiting';
+    }
+    target.QueueArea__c = area;
+    update target;
+
+    // 3) ¿Hay alguien actualmente en Serving en esta área?
+    Booking__c currentServing = getCurrentServing(area);
+
+    // 4) Bloquea y asciende el objetivo a Serving
+    Booking__c lockedTarget = [
+        SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, Product__c
+        FROM Booking__c
+        WHERE Id = :target.Id
+        FOR UPDATE
+    ];
+
+    if ('FIN'.equalsIgnoreCase(lockedTarget.QueueStatus__c)) {
+        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'La reserva ya está finalizada.'));
+        return null;
+    }
+    if (!'Serving'.equalsIgnoreCase(lockedTarget.QueueStatus__c)) {
+        lockedTarget.QueueStatus__c = 'Serving';
+    }
+    if (String.isBlank(lockedTarget.QueueArea__c)) lockedTarget.QueueArea__c = area;
+    update lockedTarget;
+
+    // 5) Cierra al anterior si existe
+    if (currentServing != null && currentServing.Id != lockedTarget.Id) {
+        Booking__c lockedServing = [
+            SELECT Id, QueueStatus__c, QueueArea__c
+            FROM Booking__c
+            WHERE Id = :currentServing.Id AND QueueStatus__c IN ('Serving','SERVING','serving')
+            FOR UPDATE
+        ];
+        lockedServing.QueueStatus__c = 'FIN';
+        if (String.isBlank(lockedServing.QueueArea__c)) lockedServing.QueueArea__c = area;
+        update lockedServing;
+    }
+
+    // 6) Etiqueta en pantalla (slot del área)
+    String hora   = (lockedTarget.StartDateTime__c == null ? '' : lockedTarget.StartDateTime__c.format('HH:mm'));
+    String nombre = (lockedTarget.ContactFirstName__c == null ? '' : lockedTarget.ContactFirstName__c);
+    String label  = (String.isBlank(nombre) ? '' : nombre) + ' - ' + lockedTarget.Name + ' - ' + hora;
+
+    if      (area == 'RAC')  P1 = label;
+    else if (area == 'G')    P2 = label;
+    else if (area == 'D')    P3 = label;
+    else if (area == 'RAC2') P4 = label;
+    else if (area == 'RAC3') P5 = label;
+    else if (area == 'RAC4') P6 = label;
+
+    // 7) Refresca la lista
+    queueList = [
+        SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c
+        FROM Booking__c
+        WHERE Name = :locator
+        ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+    ];
+
+    // === Lógica adicional para el área G ===
+    // if (area == 'G') {
+        Datetime StartDateTime = lockedTarget.StartDateTime__c;
+        Id productId = lockedTarget.Product__c;
+
+        if (productId != null) {
+            Product2 prod = [
+                SELECT Id, Name, Producto_Guiado__c
+                FROM Product2
+                WHERE Id = :productId
+                LIMIT 1
+            ];
+
+        if (prod.Producto_Guiado__c == true) {
+            // Activar el modal y mostrar mensaje personalizado
+            showConfirm = true;
+            if (StartDateTime != null) {
+                confirmMessage = 'Tu visita guiada comenzará a las ' + StartDateTime.format('HH:mm') + '. Te esperamos a esa hora.';
+            } else {
+                confirmMessage = 'Tu visita guiada comenzará pronto. Te esperamos a la hora indicada.';
+            }
+            }
+        }
+    // }
+
+    return null;
+}
+
+    // ===== 2) Avanzar cola por área cerrar Serving SOLO si hay relevo y promover siguiente a Serving =====
+    public PageReference advanceQueue() {
+        String area = resolveAreaFromContext();
+        if (String.isBlank(area)) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.ERROR, 'Falta el área (RAC/G/D).'));
+            return null;
+        }
+
+        // 1) Quién está sirviendo ahora
+        Booking__c currentServing = getCurrentServing(area);
+
+        // 2) Buscar candidato en Waiting (de esta área o reasignar uno sin área)
+        Booking__c candidate = getNextWaiting(area);
+        if (candidate == null) {
+            Booking__c unassigned = getFirstWaitingWithoutArea();
+            if (unassigned != null) {
+                unassigned.QueueArea__c = area;
+                update unassigned;
+                candidate = getNextWaiting(area);
+            }
+        }
+
+        // 3) Si NO hay candidato en Waiting: NO cierres al actual Serving
+        if (candidate == null) {
+            if (currentServing == null) {
+                // Sin nadie atendiendo y sin espera: limpia el slot
+                if      (area == 'RAC') P1 = '';
+                else if (area == 'G')   P2 = '';
+                else if (area == 'D')   P3 = '';
+                else if (area == 'RAC2')   P4 = '';
+                else if (area == 'D3')   P5 = '';
+                else if (area == 'D4')   P6 = '';
+                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.INFO, 'No hay reservas en espera para el área: ' + area + '.'));
+            } else {
+                // Mantén y pinta el actual Serving
+                String horaCS   = (currentServing.StartDateTime__c == null ? '' : currentServing.StartDateTime__c.format('HH:mm'));
+                String nombreCS = (currentServing.ContactFirstName__c == null ? '' : currentServing.ContactFirstName__c);
+                String labelCS  = (String.isBlank(nombreCS) ? '' : nombreCS) + ' - ' + currentServing.Name + ' - ' + horaCS;
+                if      (area == 'RAC') P1 = labelCS;
+                else if (area == 'G')   P2 = labelCS;
+                else if (area == 'D')   P3 = labelCS;
+                else if (area == 'RAC2')   P4 = labelCS;
+                else if (area == 'RAC3')   P5 = labelCS;
+                else if (area == 'RAC4')   P6 = labelCS;
+            }
+            return null;
+        }
+
+        // 4) Sí hay candidato: ahora SÍ se puede cerrar el actual Serving y promocionar al siguiente
+        if (currentServing != null) {
+            Booking__c lockedServing = [
+                SELECT Id, QueueStatus__c, QueueArea__c
+                FROM Booking__c
+                WHERE Id = :currentServing.Id AND QueueStatus__c IN ('Serving','SERVING','serving')
+                FOR UPDATE
+            ];
+            lockedServing.QueueStatus__c = 'FIN';
+            if (String.isBlank(lockedServing.QueueArea__c)) lockedServing.QueueArea__c = area;
+            update lockedServing;
+        }
+
+        // Promover candidato a Serving
+        Booking__c lockedNext = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c
+            FROM Booking__c
+            WHERE Id = :candidate.Id AND QueueStatus__c IN ('Waiting','WAITING','waiting')
+            FOR UPDATE
+        ];
+        lockedNext.QueueStatus__c = 'Serving';
+        if (String.isBlank(lockedNext.QueueArea__c)) lockedNext.QueueArea__c = area;
+        update lockedNext;
+
+        // Pintar slot con el nuevo Serving
+        String hora = (lockedNext.StartDateTime__c == null ? '' : lockedNext.StartDateTime__c.format('HH:mm'));
+        String nombre = (lockedNext.ContactFirstName__c == null ? '' : lockedNext.ContactFirstName__c);
+        String label = (String.isBlank(nombre) ? '' : nombre) + ' - ' + lockedNext.Name + ' - ' + hora;
+        if      (area == 'RAC') P1 = label;
+        else if (area == 'G')   P2 = label;
+        else if (area == 'D')   P3 = label;
+        else if (area == 'RAC2')   P4 = label;
+        else if (area == 'RAC3')   P5 = label;
+        else if (area == 'RAC4')   P6 = label;
+
+        return null;
+    }
+
+    // Devuelve el actual “sirviendo” por área
+    private Booking__c getCurrentServing(String area) {
+        List<Booking__c> rows = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, LastModifiedDate, SystemModstamp
+            FROM Booking__c
+            WHERE QueueStatus__c IN ('Serving','SERVING','serving')
+              AND (QueueArea__c = :area OR QueueArea__c = :area.toLowerCase() OR QueueArea__c = :area.toUpperCase()
+                   OR QueueArea__c LIKE :area + '%' OR QueueArea__c LIKE :area.toLowerCase() + '%' OR QueueArea__c LIKE :area.toUpperCase() + '%')
+            ORDER BY LastModifiedDate DESC, SystemModstamp DESC
+            LIMIT 1
+        ];
+        return rows.isEmpty() ? null : rows[0];
+    }
+
+    private Booking__c getNextWaiting(String area) {
+        List<Booking__c> rows = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, CreatedDate
+            FROM Booking__c
+            WHERE QueueStatus__c IN ('Waiting','WAITING','waiting')
+              AND (QueueArea__c = :area OR QueueArea__c = :area.toLowerCase() OR QueueArea__c = :area.toUpperCase()
+                   OR QueueArea__c LIKE :area + '%' OR QueueArea__c LIKE :area.toLowerCase() + '%' OR QueueArea__c LIKE :area.toUpperCase() + '%')
+            ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+            LIMIT 1
+        ];
+        return rows.isEmpty() ? null : rows[0];
+    }
+
+    private Booking__c getFirstWaitingWithoutArea() {
+        List<Booking__c> rows = [
+            SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, CreatedDate
+            FROM Booking__c
+            WHERE QueueStatus__c IN ('Waiting','WAITING','waiting')
+              AND (QueueArea__c = null OR QueueArea__c = '')
+            ORDER BY StartDateTime__c ASC NULLS FIRST, CreatedDate ASC
+            LIMIT 1
+        ];
+        return rows.isEmpty() ? null : rows[0];
+    }
+
+    // ===== 3) Pantallas por área: último FIN mostrado a clientes =====
+   public Booking__c getLastCalled() {
+    String area = resolveAreaFromContext();
+    if (String.isBlank(area)) return null;
+
+    // 1) Intentar el actual Serving (flexible con el área, como ya haces en getCurrentServing)
+    List<Booking__c> serving = [
+        SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, LastModifiedDate, SystemModstamp
+        FROM Booking__c
+        WHERE QueueStatus__c IN ('Serving','SERVING','serving')
+          AND (QueueArea__c = :area OR QueueArea__c = :area.toLowerCase() OR QueueArea__c = :area.toUpperCase()
+               OR QueueArea__c LIKE :area + '%' OR QueueArea__c LIKE :area.toLowerCase() + '%' OR QueueArea__c LIKE :area.toUpperCase() + '%')
+        ORDER BY LastModifiedDate DESC, SystemModstamp DESC
+        LIMIT 1
+    ];
+    if (!serving.isEmpty()) return serving[0];
+
+    // 2) Si no hay Serving, tomar el último FIN (con el mismo criterio flexible de área)
+    List<Booking__c> finished = [
+        SELECT Id, Name, StartDateTime__c, ContactFirstName__c, QueueStatus__c, QueueArea__c, LastModifiedDate, SystemModstamp
+        FROM Booking__c
+        WHERE QueueStatus__c = 'FIN'
+          AND (QueueArea__c = :area OR QueueArea__c = :area.toLowerCase() OR QueueArea__c = :area.toUpperCase()
+               OR QueueArea__c LIKE :area + '%' OR QueueArea__c LIKE :area.toLowerCase() + '%' OR QueueArea__c LIKE :area.toUpperCase() + '%')
+        ORDER BY LastModifiedDate DESC, SystemModstamp DESC
+        LIMIT 1
+    ];
+    return finished.isEmpty() ? null : finished[0];
+}
+
+public String getLastCalledDisplay() {
+    Booking__c b = getLastCalled();
+    if (b == null) return '';
+    String nombre = (b.ContactFirstName__c == null ? '' : b.ContactFirstName__c.toUpperCase());
+    String hora   = (b.StartDateTime__c == null ? '' : b.StartDateTime__c.format('HH:mm'));
+    return (String.isBlank(nombre) ? b.Name : nombre) + (String.isBlank(hora) ? '' : '  ·  ' + hora);
+}
+
+    // ===== (opcional) completar atención =====
+    public PageReference completeServing() {
+        Id bookingId;
+        // try { bookingId = (Id)JSON.deserializeUntyped(ApexPages.currentPage().getParameters().get('bookingId')); }
+        try { bookingId = Id.valueOf(ApexPages.currentPage().getParameters().get('bookingId')); }
+        catch (Exception e) { System.debug('error ' + e.getMessage()); }
+        if (bookingId == null) return null;
+
+        Booking__c b = [SELECT Id, QueueStatus__c FROM Booking__c WHERE Id = :bookingId FOR UPDATE];
+        // Si estaba en Serving, cierro; si no, no forzamos el cierre.
+        if (b.QueueStatus__c != null && b.QueueStatus__c.equalsIgnoreCase('Serving')) {
+            b.QueueStatus__c = 'FIN';
+            update b;
+        }
+        return null;
+    }
+
+    // ===== Getter para VF =====
+    public List<Booking__c> getQueueList() { return queueList; }
+
+public PageReference toggleSearchAction() {
+        clickCount++;
+        System.debug('Click número: ' + clickCount);
+
+        if (clickCount == 1) {
+            return searchByBookingName();
+        } else if (clickCount == 2) {
+            return searchByBookingNameRAC2();
+        } else if (clickCount == 3) {
+            return searchByBookingNameRAC2();
+        } else if (clickCount == 4) {
+            return searchByBookingNameRAC2();
+        } else {
+            // Reinicia el ciclo para volver a empezar en el siguiente clic
+            clickCount = 0;
+            return null;
+        }
+        }
+        }
